@@ -48,15 +48,13 @@ jobs:
           }();
           ESPressio::NRF24::NRF24Radio radio(config);
           ESPressio::Radio::RadioTransport transport(1);
+          ESPressio::Radio::RadioWorker worker(transport);
 
           void setup() {
-              transport.AddInterface(radio, true);
+              worker.AddInterface(radio, true);
           }
 
-          void loop() {
-              transport.Poll();
-              delay(1);
-          }
+          void loop() {}
           EOF
       - name: Compile provider
         run: pio run -d "$RUNNER_TEMP/espressio-nrf24-ci"
