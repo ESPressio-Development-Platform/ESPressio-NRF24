@@ -124,7 +124,7 @@ public:
     void SetWorkSignal(Radio::IRadioWorkSignal* signal) noexcept override { _workSignal = signal; }
     Radio::RadioObserverSubscriptions& Observers() noexcept override { return _observers; }
 
-    void ProcessInbound() override {
+    void DrainInbound() override {
         if (!_started) return;
         uint8_t pipe = 0;
         while (_radio.available(&pipe)) {
