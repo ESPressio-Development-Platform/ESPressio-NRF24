@@ -30,6 +30,7 @@ struct NRF24RadioConfiguration {
 /// <summary>
 /// nRF24L01/nRF24L01+ concrete for ESPressio-Radio using the RF24 driver.
 /// The nRF24 link does not expose the transmitter address on receive, so received Source is intentionally left opaque/invalid.
+/// Inbound hardware servicing is invoked by RadioWorker; applications do not poll this provider directly.
 /// </summary>
 class NRF24Radio final : public Radio::IRadio {
 private:
@@ -39,6 +40,7 @@ private:
     NRF24RadioConfiguration _configuration;
     RF24 _radio;
     Radio::IRadioReceiver* _receiver = nullptr;
+    Radio::IRadioWorkSignal* _workSignal = nullptr;
     Radio::RadioObserverSubscriptions _observers{};
     bool _started = false;
 
@@ -119,9 +121,10 @@ public:
     }
 
     void SetReceiver(Radio::IRadioReceiver* receiver) noexcept override { _receiver = receiver; }
+    void SetWorkSignal(Radio::IRadioWorkSignal* signal) noexcept override { _workSignal = signal; }
     Radio::RadioObserverSubscriptions& Observers() noexcept override { return _observers; }
 
-    void Poll() override {
+    void ProcessInbound() override {
         if (!_started) return;
         uint8_t pipe = 0;
         while (_radio.available(&pipe)) {
@@ -140,7 +143,6 @@ public:
             packet.PayloadSize = length;
             packet.Flags = pipe == 2 ? Radio::RadioPacketFlag::Broadcast : Radio::RadioPacketFlag::LinkAcknowledged;
             if (_receiver != nullptr) _receiver->OnRadioPacket(*this, packet);
-            _observers.NotifyPacketReceived(*this, packet);
         }
     }
 };
