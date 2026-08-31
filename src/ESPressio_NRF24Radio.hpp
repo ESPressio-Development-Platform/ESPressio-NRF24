@@ -39,6 +39,7 @@ private:
     NRF24RadioConfiguration _configuration;
     RF24 _radio;
     Radio::IRadioReceiver* _receiver = nullptr;
+    Radio::RadioObserverSubscriptions _observers{};
     bool _started = false;
 
     bool ValidateAddress(const Radio::RadioAddress& address) const noexcept {
@@ -64,6 +65,7 @@ public:
         _radio.openReadingPipe(2, _configuration.BroadcastAddress.Bytes.data());
         _radio.startListening();
         _started = true;
+        _observers.NotifyStarted(*this);
         return true;
     }
 
@@ -72,6 +74,7 @@ public:
         _radio.stopListening();
         _radio.powerDown();
         _started = false;
+        _observers.NotifyStopped(*this);
     }
 
     bool IsStarted() const noexcept override { return _started; }
@@ -97,21 +100,26 @@ public:
         const uint8_t* payload,
         std::size_t payloadSize
     ) override {
-        if (!_started) return {Radio::RadioSendStatus::NotStarted, 0};
-        if (!ValidateAddress(destination)) return {Radio::RadioSendStatus::InvalidAddress, 0};
+        const auto complete = [&](Radio::RadioSendResult result) {
+            _observers.NotifySendCompleted(*this, destination, payloadSize, result);
+            return result;
+        };
+        if (!_started) return complete({Radio::RadioSendStatus::NotStarted, 0});
+        if (!ValidateAddress(destination)) return complete({Radio::RadioSendStatus::InvalidAddress, 0});
         if ((payload == nullptr && payloadSize != 0) || payloadSize > MaximumPayloadBytes)
-            return {Radio::RadioSendStatus::PayloadTooLarge, 0};
+            return complete({Radio::RadioSendStatus::PayloadTooLarge, 0});
 
         const bool broadcast = destination == _configuration.BroadcastAddress || destination.IsBroadcast();
         const Radio::RadioAddress& txAddress = destination.IsBroadcast() ? _configuration.BroadcastAddress : destination;
         _radio.stopListening(txAddress.Bytes.data());
         const bool delivered = _radio.write(payload, static_cast<uint8_t>(payloadSize), broadcast);
         _radio.startListening();
-        if (delivered) return Radio::RadioSendResult::Accepted();
-        return {Radio::RadioSendStatus::NativeFailure, 0};
+        if (delivered) return complete(Radio::RadioSendResult::Accepted());
+        return complete({Radio::RadioSendStatus::NativeFailure, 0});
     }
 
     void SetReceiver(Radio::IRadioReceiver* receiver) noexcept override { _receiver = receiver; }
+    Radio::RadioObserverSubscriptions& Observers() noexcept override { return _observers; }
 
     void Poll() override {
         if (!_started) return;
@@ -124,15 +132,15 @@ public:
             }
             std::array<uint8_t, MaximumPayloadBytes> payload{};
             _radio.read(payload.data(), length);
-            if (_receiver == nullptr) continue;
 
             Radio::RadioPacketView packet;
-            packet.Source = {}; // nRF24 Enhanced ShockBurst does not report the sender address to the receiver.
+            packet.Source = {};
             packet.Destination = pipe == 2 ? _configuration.BroadcastAddress : _configuration.LocalAddress;
             packet.Payload = payload.data();
             packet.PayloadSize = length;
             packet.Flags = pipe == 2 ? Radio::RadioPacketFlag::Broadcast : Radio::RadioPacketFlag::LinkAcknowledged;
-            _receiver->OnRadioPacket(*this, packet);
+            if (_receiver != nullptr) _receiver->OnRadioPacket(*this, packet);
+            _observers.NotifyPacketReceived(*this, packet);
         }
     }
 };
