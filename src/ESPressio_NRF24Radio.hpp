@@ -9,12 +9,17 @@
 
 namespace ESPressio::NRF24 {
 
+inline Radio::RadioAddress DefaultNRF24BroadcastAddress() noexcept {
+    static constexpr uint8_t bytes[5] = {0xD2, 0xF0, 0xA5, 0x5A, 0xC3};
+    return Radio::RadioAddress::FromBytes(bytes, 5);
+}
+
 /// <summary>Configuration for an nRF24L01/nRF24L01+ ESPressio radio provider.</summary>
 struct NRF24RadioConfiguration {
     uint16_t CePin = 0;
     uint16_t CsnPin = 0;
     Radio::RadioAddress LocalAddress{};
-    Radio::RadioAddress BroadcastAddress = Radio::RadioAddress::Broadcast(5);
+    Radio::RadioAddress BroadcastAddress = DefaultNRF24BroadcastAddress();
     uint8_t Channel = 76;
     rf24_datarate_e DataRate = RF24_1MBPS;
     rf24_pa_dbm_e PowerLevel = RF24_PA_LOW;
