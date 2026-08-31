@@ -23,13 +23,19 @@ jobs:
           mkdir -p "$PROJECT/src"
           cat > "$PROJECT/platformio.ini" <<'EOF'
           [env:esp32dev]
-          platform = espressif32
+          platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.311/platform-espressif32.zip
           board = esp32dev
           framework = arduino
           build_flags = -std=gnu++17
           build_unflags = -std=gnu++11
           lib_ldf_mode = deep+
           lib_deps =
+              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#feature/1-system-memory-policy
+              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#item_4_saturation_testing
+              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#feature/16-rtti-free-observer-registry
+              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#item_4_saturation_testing
+              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#optimisation/69-resource-footprint
+              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#feature/1-radio-transport
               https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#feature/1-nrf24-radio
           EOF
           cat > "$PROJECT/src/main.cpp" <<'EOF'
@@ -56,5 +62,5 @@ jobs:
 
           void loop() {}
           EOF
-      - name: Compile provider
+      - name: Compile provider against current Working Branch APIs
         run: pio run -d "$RUNNER_TEMP/espressio-nrf24-ci"
