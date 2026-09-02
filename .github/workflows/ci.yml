@@ -30,13 +30,13 @@ jobs:
           build_unflags = -std=gnu++11
           lib_ldf_mode = deep+
           lib_deps =
-              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#feature/1-system-memory-policy
-              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#item_4_saturation_testing
-              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#feature/16-rtti-free-observer-registry
-              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#item_4_saturation_testing
-              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#optimisation/69-resource-footprint
-              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#feature/1-radio-transport
-              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#feature/1-nrf24-radio
+              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#main
           EOF
           cat > "$PROJECT/src/main.cpp" <<'EOF'
           #include <Arduino.h>
