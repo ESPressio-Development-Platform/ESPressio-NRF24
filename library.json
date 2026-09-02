@@ -1,0 +1,24 @@
+{
+  "name": "ESPressio-NRF24",
+  "description": "nRF24L01/nRF24L01+ concrete packet-radio provider for ESPressio-Radio",
+  "keywords": "espressio,radio,nrf24,nrf24l01,2.4ghz,transport",
+  "authors": {"name":"Simon J. Stuart","maintainer":true,"url":"https://espressio.org"},
+  "build": {"flags":["-std=gnu++17","-DESPRESSIO_NRF24"]},
+  "repository": {"type":"git","url":"https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git"},
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "frameworks": "arduino",
+  "platforms": "*",
+  "dependencies": [
+    {
+      "name":"ESPressio-Radio",
+      "version":"https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#feature/1-radio-transport",
+      "platforms":"*"
+    },
+    {
+      "name":"RF24",
+      "version":"https://github.com/nRF24/RF24.git#v1.6.1",
+      "platforms":"*"
+    }
+  ]
+}

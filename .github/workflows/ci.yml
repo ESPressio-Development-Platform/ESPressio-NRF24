@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - feature/1-nrf24-radio
+  pull_request:
+
+jobs:
+  esp32-nrf24-provider:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install PlatformIO
+        run: pip install platformio
+      - name: Create provider smoke project
+        shell: bash
+        run: |
+          PROJECT="$RUNNER_TEMP/espressio-nrf24-ci"
+          mkdir -p "$PROJECT/src"
+          cat > "$PROJECT/platformio.ini" <<'EOF'
+          [env:esp32dev]
+          platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.311/platform-espressif32.zip
+          board = esp32dev
+          framework = arduino
+          build_flags = -std=gnu++17
+          build_unflags = -std=gnu++11
+          lib_ldf_mode = deep+
+          lib_deps =
+              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#feature/1-system-memory-policy
+              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#item_4_saturation_testing
+              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#feature/16-rtti-free-observer-registry
+              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#item_4_saturation_testing
+              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#optimisation/69-resource-footprint
+              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#feature/1-radio-transport
+              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#feature/1-nrf24-radio
+          EOF
+          cat > "$PROJECT/src/main.cpp" <<'EOF'
+          #include <Arduino.h>
+          #include <ESPressio_Radio.hpp>
+          #include <ESPressio_NRF24.hpp>
+
+          static const uint8_t addressBytes[5] = {0xD2, 0xF0, 0xA5, 0x00, 0x01};
+
+          ESPressio::NRF24::NRF24RadioConfiguration config = [] {
+              ESPressio::NRF24::NRF24RadioConfiguration value;
+              value.CePin = 4;
+              value.CsnPin = 5;
+              value.LocalAddress = ESPressio::Radio::RadioAddress::FromBytes(addressBytes, 5);
+              return value;
+          }();
+          ESPressio::NRF24::NRF24Radio radio(config);
+          ESPressio::Radio::RadioTransport transport(1);
+          ESPressio::Radio::RadioWorker worker(transport);
+
+          void setup() {
+              worker.AddInterface(radio, true);
+          }
+
+          void loop() {}
+          EOF
+      - name: Compile provider against current Working Branch APIs
+        run: pio run -d "$RUNNER_TEMP/espressio-nrf24-ci"
