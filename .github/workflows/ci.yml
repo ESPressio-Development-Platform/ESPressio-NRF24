@@ -30,13 +30,13 @@ jobs:
           build_unflags = -std=gnu++11
           lib_ldf_mode = deep+
           lib_deps =
-              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#main
-              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#main
-              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#main
-              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#main
-              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#main
-              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#main
-              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#main
+              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#structural_realignment
           EOF
           cat > "$PROJECT/src/main.cpp" <<'EOF'
           #include <Arduino.h>
