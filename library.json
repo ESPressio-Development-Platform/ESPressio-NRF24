@@ -12,7 +12,7 @@
   "dependencies": [
     {
       "name":"ESPressio-Radio",
-      "version":"https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#feature/1-radio-transport",
+      "version":"https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#main",
       "platforms":"*"
     },
     {
