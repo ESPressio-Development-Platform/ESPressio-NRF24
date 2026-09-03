@@ -12,7 +12,7 @@
   "dependencies": [
     {
       "name":"ESPressio-Radio",
-      "version":"https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#structural_realignment",
+      "version":"https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#structural_realignment_propagation_ESPressio-Mesh",
       "platforms":"*"
     },
     {
