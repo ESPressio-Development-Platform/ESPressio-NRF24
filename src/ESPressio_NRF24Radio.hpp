@@ -29,13 +29,19 @@ struct NRF24RadioConfiguration {
 
 /// <summary>
 /// nRF24L01/nRF24L01+ concrete for ESPressio-Radio using the RF24 driver.
-/// The nRF24 link does not expose the transmitter address on receive, so received Source is intentionally left opaque/invalid.
-/// Inbound hardware servicing is invoked by RadioWorker; applications do not poll this provider directly.
 /// </summary>
+/// <remarks>
+/// The nRF24 receive FIFO does not expose the transmitter address, so physical RadioPacketView::Source remains invalid.
+/// RadioTransport's own fragment framing carries the sender RadioAddress for ordinary bounded logical transfers; the
+/// separate 32-byte precision clock exchange already carries its return endpoint and therefore remains atomic and does
+/// not require a provider-specific addressing shim. Inbound hardware servicing is invoked by RadioWorker; applications
+/// do not poll this provider directly.
+/// </remarks>
 class NRF24Radio final : public Radio::IRadio {
 private:
     static constexpr uint8_t AddressBytes = 5;
     static constexpr uint8_t MaximumPayloadBytes = 32;
+    static constexpr uint16_t MaximumLogicalTransferBytes = 4096;
 
     NRF24RadioConfiguration _configuration;
     RF24 _radio;
@@ -91,7 +97,8 @@ public:
             Radio::RadioCapability::TransmitPower |
             Radio::RadioCapability::HardwareAddressing,
             MaximumPayloadBytes,
-            AddressBytes
+            AddressBytes,
+            MaximumLogicalTransferBytes
         };
     }
 
