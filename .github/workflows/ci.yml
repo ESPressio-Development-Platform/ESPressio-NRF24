@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/1-nrf24-radio
+      - structural_realignment_propagation_ESPressio-Mesh
   pull_request:
 
 jobs:
@@ -30,13 +31,13 @@ jobs:
           build_unflags = -std=gnu++11
           lib_ldf_mode = deep+
           lib_deps =
-              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#structural_realignment_propagation_ESPressio-Mesh
               https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#structural_realignment
               https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#structural_realignment
               https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#structural_realignment
               https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#structural_realignment
-              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#structural_realignment
-              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#structural_realignment
+              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#structural_realignment_propagation_ESPressio-Mesh
+              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#structural_realignment_propagation_ESPressio-Mesh
           EOF
           cat > "$PROJECT/src/main.cpp" <<'EOF'
           #include <Arduino.h>
@@ -53,14 +54,14 @@ jobs:
               return value;
           }();
           ESPressio::NRF24::NRF24Radio radio(config);
-          ESPressio::Radio::RadioTransport transport(1);
+          ESPressio::Radio::RadioTransport transport;
           ESPressio::Radio::RadioWorker worker(transport);
 
           void setup() {
-              worker.AddInterface(radio, true);
+              worker.AddInterface(radio);
           }
 
           void loop() {}
           EOF
-      - name: Compile provider against current Working Branch APIs
+      - name: Compile provider against Mesh propagation Radio API
         run: pio run -d "$RUNNER_TEMP/espressio-nrf24-ci"
