@@ -106,7 +106,7 @@ public:
         std::size_t payloadSize
     ) override {
         const auto complete = [&](Radio::RadioSendResult result) {
-            _observers.NotifySendCompleted(*this, destination, payloadSize, result);
+            _observers.NotifySendAttempted(*this, destination, payloadSize, result);
             return result;
         };
         if (!_started) return complete({Radio::RadioSendStatus::NotStarted, 0});
