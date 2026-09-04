@@ -27,15 +27,11 @@ struct NRF24RadioConfiguration {
     uint8_t RetryCount = 15;
 };
 
-/// <summary>
-/// nRF24L01/nRF24L01+ concrete for ESPressio-Radio using the RF24 driver.
-/// </summary>
+/// <summary>nRF24L01/nRF24L01+ concrete for ESPressio-Radio using the RF24 driver.</summary>
 /// <remarks>
-/// The nRF24 receive FIFO does not expose the transmitter address, so physical RadioPacketView::Source remains invalid.
-/// RadioTransport's own fragment framing carries the sender RadioAddress for ordinary bounded logical transfers; the
-/// separate 32-byte precision clock exchange already carries its return endpoint and therefore remains atomic and does
-/// not require a provider-specific addressing shim. Inbound hardware servicing is invoked by RadioWorker; applications
-/// do not poll this provider directly.
+/// RF24::write is synchronous. A successful unicast write therefore proves link transmission completion and hardware
+/// acknowledgement after the configured retry policy; broadcast/multicast writes prove transmission completion but have
+/// no peer acknowledgement. This qualified evidence is returned separately from Radio send admission.
 /// </remarks>
 class NRF24Radio final : public Radio::IRadio {
 private:
@@ -123,8 +119,13 @@ public:
         _radio.stopListening(txAddress.Bytes.data());
         const bool delivered = _radio.write(payload, static_cast<uint8_t>(payloadSize), broadcast);
         _radio.startListening();
-        if (delivered) return complete(Radio::RadioSendResult::Accepted());
-        return complete({Radio::RadioSendStatus::NativeFailure, 0});
+        if (!delivered) return complete({Radio::RadioSendStatus::NativeFailure, 0});
+
+        return complete(Radio::RadioSendResult::Accepted(
+            broadcast
+                ? Radio::RadioDirectLinkEvidence::CompletedWithoutPeerAcknowledgement()
+                : Radio::RadioDirectLinkEvidence::CompletedAndAcknowledged()
+        ));
     }
 
     void SetReceiver(Radio::IRadioReceiver* receiver) noexcept override { _receiver = receiver; }
