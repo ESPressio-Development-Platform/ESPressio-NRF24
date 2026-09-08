@@ -15,6 +15,23 @@ inline Radio::RadioAddress DefaultNRF24BroadcastAddress() noexcept {
 }
 
 /// <summary>Configuration for an nRF24L01/nRF24L01+ ESPressio radio provider.</summary>
+/**
+ * ESPressio Memory Audit
+ * Members:
+ * - CePin (uint16_t): 2 bytes [0 bytes dynamic allocation]
+ * - CsnPin (uint16_t): 2 bytes [0 bytes dynamic allocation]
+ * - LocalAddress (Radio::RadioAddress): 9 bytes [0 bytes dynamic allocation]
+ * - BroadcastAddress (Radio::RadioAddress): 9 bytes [0 bytes dynamic allocation]
+ * - Channel (uint8_t): 1 bytes [0 bytes dynamic allocation]
+ * - DataRate (rf24_datarate_e): 4 bytes [0 bytes dynamic allocation]
+ * - PowerLevel (rf24_pa_dbm_e): 4 bytes [0 bytes dynamic allocation]
+ * - RetryDelay (uint8_t): 1 bytes [0 bytes dynamic allocation]
+ * - RetryCount (uint8_t): 1 bytes [0 bytes dynamic allocation]
+ * Total Memory: 36 bytes [0 bytes dynamic allocation]
+ * Basis: ESP32/Xtensa ILP32 reference ABI (4-byte pointers/size_t); ESPressio stateful allocators/deleters included; ABI-sensitive STL/platform internals are identified explicitly.
+ * Confidence: medium; compile-time sizeof on the concrete target remains authoritative for ABI-sensitive/opaque members.
+ * End ESPressio Memory Audit
+ */
 struct NRF24RadioConfiguration {
     uint16_t CePin = 0;
     uint16_t CsnPin = 0;
@@ -33,6 +50,21 @@ struct NRF24RadioConfiguration {
 /// acknowledgement after the configured retry policy; broadcast/multicast writes prove transmission completion but have
 /// no peer acknowledgement. This qualified evidence is returned separately from Radio send admission.
 /// </remarks>
+/**
+ * ESPressio Memory Audit
+ * Inherited Memory Total: 4 bytes [0 bytes dynamic allocation]
+ * Members:
+ * - _configuration (NRF24RadioConfiguration): 36 bytes [0 bytes dynamic allocation]
+ * - _radio (RF24): sizeof(RF24) (target/toolchain dependent) [0 bytes dynamic allocation]
+ * - _receiver (Radio::IRadioReceiver*): 4 bytes [0 bytes dynamic allocation]
+ * - _workSignal (Radio::IRadioWorkSignal*): 4 bytes [0 bytes dynamic allocation]
+ * - _observers (Radio::RadioObserverSubscriptions): 8 bytes [_dispatcher: shared control block (~12+ bytes; allocate_shared may co-locate object) + object 52 bytes; _dispatcher: pointee: Observable: IUntypedObservable: IObservable: enable_shared_from_this: embedded weak_ptr shares a control block when activated; _dispatcher: pointee: Observable: IUntypedObservable: IObservable: _lifetimeControl: shared control block (~12+ bytes; allocate_shared may co-locate object) + object 20 bytes; _dispatcher: pointee: Observable: IUntypedObservable: IObservable: _lifetimeControl: pointee: _mutex: native synchronization state may allocate platform resources lazily; _dispatcher: pointee: Observable: IUntypedObservable: IObservable: _lifetimeControl: pointee: _condition: native condition-variable state may allocate platform synchronization resources; _dispatcher: pointee: Observable: _registrations: Capacity * (12 bytes) element storage; _dispatcher: pointee: Observable: _bindings: Capacity * (12 bytes) element storage]
+ * - _started (bool): 1 bytes [0 bytes dynamic allocation]
+ * Total Memory: 57 bytes known/aligned storage + sizeof(RF24) (target/toolchain dependent) [_observers: _dispatcher: shared control block (~12+ bytes; allocate_shared may co-locate object) + object 52 bytes; _observers: _dispatcher: pointee: Observable: IUntypedObservable: IObservable: enable_shared_from_this: embedded weak_ptr shares a control block when activated; _observers: _dispatcher: pointee: Observable: IUntypedObservable: IObservable: _lifetimeControl: shared control block (~12+ bytes; allocate_shared may co-locate object) + object 20 bytes; _observers: _dispatcher: pointee: Observable: IUntypedObservable: IObservable: _lifetimeControl: pointee: _mutex: native synchronization state may allocate platform resources lazily; _observers: _dispatcher: pointee: Observable: IUntypedObservable: IObservable: _lifetimeControl: pointee: _condition: native condition-variable state may allocate platform synchronization resources; _observers: _dispatcher: pointee: Observable: _registrations: Capacity * (12 bytes) element storage; _observers: _dispatcher: pointee: Observable: _bindings: Capacity * (12 bytes) element storage]
+ * Basis: ESP32/Xtensa ILP32 reference ABI (4-byte pointers/size_t); ESPressio stateful allocators/deleters included; ABI-sensitive STL/platform internals are identified explicitly.
+ * Confidence: low; compile-time sizeof on the concrete target remains authoritative for ABI-sensitive/opaque members.
+ * End ESPressio Memory Audit
+ */
 class NRF24Radio final : public Radio::IRadio {
 private:
     static constexpr uint8_t AddressBytes = 5;
