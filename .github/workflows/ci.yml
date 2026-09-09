@@ -31,7 +31,7 @@ jobs:
           build_unflags = -std=gnu++11
           lib_ldf_mode = deep+
           lib_deps =
-              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#structural_realignment_propagation_ESPressio-Mesh
+              https://github.com/ESPressio-Development-Platform/ESPressio-System.git#primitives_redesign
               https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#primitives_redesign
               https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#primitives_redesign
               https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#primitives_redesign
