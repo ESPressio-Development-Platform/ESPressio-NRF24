@@ -32,12 +32,12 @@ jobs:
           lib_ldf_mode = deep+
           lib_deps =
               https://github.com/ESPressio-Development-Platform/ESPressio-System.git#structural_realignment_propagation_ESPressio-Mesh
-              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#structural_realignment
-              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#structural_realignment
-              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#structural_realignment
-              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#structural_realignment
-              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#structural_realignment_propagation_ESPressio-Mesh
-              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#structural_realignment_propagation_ESPressio-Mesh
+              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#primitives_redesign
           EOF
           cat > "$PROJECT/src/main.cpp" <<'EOF'
           #include <Arduino.h>
