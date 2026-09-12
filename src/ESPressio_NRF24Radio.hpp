@@ -10,46 +10,62 @@
 namespace ESPressio::NRF24 {
 
 inline Radio::RadioAddress DefaultNRF24BroadcastAddress() noexcept {
-    static constexpr uint8_t bytes[5] = {0xD2, 0xF0, 0xA5, 0x5A, 0xC3};
+    static constexpr std::uint8_t bytes[5] = {0xD2, 0xF0, 0xA5, 0x5A, 0xC3};
     return Radio::RadioAddress::FromBytes(bytes, 5);
 }
 
-/// <summary>Configuration for an nRF24L01/nRF24L01+ ESPressio radio provider.</summary>
-
+/// <summary>Configuration for an nRF24L01/nRF24L01+ managed Radio provider.</summary>
 struct NRF24RadioConfiguration {
-    uint16_t CePin = 0;
-    uint16_t CsnPin = 0;
+    std::uint16_t CePin = 0;
+    std::uint16_t CsnPin = 0;
     Radio::RadioAddress LocalAddress{};
     Radio::RadioAddress BroadcastAddress = DefaultNRF24BroadcastAddress();
-    uint8_t Channel = 76;
+    std::uint8_t Channel = 76;
     rf24_datarate_e DataRate = RF24_1MBPS;
     rf24_pa_dbm_e PowerLevel = RF24_PA_LOW;
-    uint8_t RetryDelay = 5;
-    uint8_t RetryCount = 15;
+    std::uint8_t RetryDelay = 5;
+    std::uint8_t RetryCount = 15;
+    /// <summary>Optional explicit physical contention-domain identity. Zero derives a deterministic identity from channel.</summary>
+    Radio::RadioContentionDomainId ContentionDomain{};
 };
 
-/// <summary>nRF24L01/nRF24L01+ concrete for ESPressio-Radio using the RF24 driver.</summary>
+/// <summary>nRF24L01/nRF24L01+ concrete implementing the finite managed ESPressio-Radio provider contract.</summary>
 /// <remarks>
-/// RF24::write is synchronous. A successful unicast write therefore proves link transmission completion and hardware
-/// acknowledgement after the configured retry policy; broadcast/multicast writes prove transmission completion but have
-/// no peer acknowledgement. This qualified evidence is returned separately from Radio send admission.
+/// RF24::write is synchronous. Successful unicast therefore proves TransmissionCompletion plus peer acknowledgement;
+/// broadcast proves TransmissionCompletion with acknowledgement unavailable. RX has no provider-proximate timestamp in
+/// the RF24 API used here, so timestamp evidence is explicitly Unknown/Unbounded and this provider cannot certify K1/K2
+/// Clock synchronization without a stronger platform capture source.
 /// </remarks>
-
 class NRF24Radio final : public Radio::IRadio {
 private:
-    static constexpr uint8_t AddressBytes = 5;
-    static constexpr uint8_t MaximumPayloadBytes = 32;
-    static constexpr uint16_t MaximumLogicalTransferBytes = 4096;
+    static constexpr std::uint8_t AddressBytes = 5;
+    static constexpr std::uint8_t MaximumPayloadBytes = 32;
+    static constexpr std::uint16_t MaximumLogicalTransferBytes = 3060; // (32 - (15 + 5)) * 255
+    static constexpr std::size_t HardwareReceiveFifoPackets = 3;
 
     NRF24RadioConfiguration _configuration;
     RF24 _radio;
     Radio::IRadioReceiver* _receiver = nullptr;
-    Radio::IRadioWorkSignal* _workSignal = nullptr;
-    Radio::RadioObserverSubscriptions _observers{};
+    Radio::IRadioRuntimeSink* _runtimeSink = nullptr;
     bool _started = false;
+    std::uint32_t _lifecycleGeneration = 0;
 
     bool ValidateAddress(const Radio::RadioAddress& address) const noexcept {
         return address.IsValid() && address.Length == AddressBytes;
+    }
+
+    Radio::RadioContentionDomainId EffectiveContentionDomain() const noexcept {
+        if (_configuration.ContentionDomain) return _configuration.ContentionDomain;
+        return {static_cast<std::uint32_t>(0x4E240100u + _configuration.Channel)};
+    }
+
+    std::uint64_t DataRateBitsPerSecond() const noexcept {
+        switch (_configuration.DataRate) {
+            case RF24_250KBPS: return 250'000ULL;
+            case RF24_2MBPS: return 2'000'000ULL;
+            case RF24_1MBPS:
+            default: return 1'000'000ULL;
+        }
     }
 
 public:
@@ -58,7 +74,8 @@ public:
 
     bool Start() override {
         if (_started) return true;
-        if (!ValidateAddress(_configuration.LocalAddress) || !ValidateAddress(_configuration.BroadcastAddress)) return false;
+        if (!ValidateAddress(_configuration.LocalAddress) || !ValidateAddress(_configuration.BroadcastAddress) ||
+            !EffectiveContentionDomain()) return false;
         if (!_radio.begin()) return false;
         _radio.setAddressWidth(AddressBytes);
         _radio.setChannel(_configuration.Channel);
@@ -71,7 +88,9 @@ public:
         _radio.openReadingPipe(2, _configuration.BroadcastAddress.Bytes.data());
         _radio.startListening();
         _started = true;
-        _observers.NotifyStarted(*this);
+        ++_lifecycleGeneration;
+        if (_lifecycleGeneration == 0) ++_lifecycleGeneration;
+        if (_runtimeSink) _runtimeSink->LifecycleAvailabilityChanged(*this);
         return true;
     }
 
@@ -80,7 +99,7 @@ public:
         _radio.stopListening();
         _radio.powerDown();
         _started = false;
-        _observers.NotifyStopped(*this);
+        if (_runtimeSink) _runtimeSink->LifecycleAvailabilityChanged(*this);
     }
 
     bool IsStarted() const noexcept override { return _started; }
@@ -101,59 +120,95 @@ public:
     }
 
     Radio::RadioAddress LocalAddress() const noexcept override { return _configuration.LocalAddress; }
+    Radio::RadioContentionDomainId ContentionDomain() const noexcept override { return EffectiveContentionDomain(); }
+
+    Radio::RadioProviderResourceProfile ProviderResources() const noexcept override {
+        return {
+            static_cast<std::uint16_t>(HardwareReceiveFifoPackets),
+            static_cast<std::uint16_t>(HardwareReceiveFifoPackets),
+            0,
+            _configuration.RetryCount
+        };
+    }
+
+    bool IsTransmitReady() const noexcept override { return _started; }
+
+    Radio::RadioTransmissionCost EstimateTransmissionCost(
+        const Radio::RadioAddress&,
+        std::size_t payloadBytes,
+        const Radio::RadioServiceProfile&) const noexcept override {
+        if (payloadBytes > MaximumPayloadBytes) return {};
+        const std::uint64_t attempts = static_cast<std::uint64_t>(_configuration.RetryCount) + 1ULL;
+        // Conservative physical bits: preamble/address/control/CRC allowance plus dynamic payload.
+        const std::uint64_t bitsPerAttempt = static_cast<std::uint64_t>(payloadBytes + 16U) * 8ULL;
+        const auto rate = DataRateBitsPerSecond();
+        const std::uint64_t airPerAttempt = (bitsPerAttempt * 1'000'000'000ULL + rate - 1ULL) / rate;
+        const std::uint64_t retryDelay = static_cast<std::uint64_t>(_configuration.RetryDelay + 1U) * 250'000ULL;
+        const std::uint64_t retryGaps = _configuration.RetryCount == 0
+            ? 0ULL : static_cast<std::uint64_t>(_configuration.RetryCount) * retryDelay;
+        return {
+            attempts * (payloadBytes + 16U),
+            attempts * airPerAttempt + retryGaps,
+            Radio::RadioCostEstimateQuality::ConservativeAirtime
+        };
+    }
 
     Radio::RadioSendResult Send(
         const Radio::RadioAddress& destination,
-        const uint8_t* payload,
-        std::size_t payloadSize
-    ) override {
-        const auto complete = [&](Radio::RadioSendResult result) {
-            _observers.NotifySendAttempted(*this, destination, payloadSize, result);
-            return result;
-        };
-        if (!_started) return complete({Radio::RadioSendStatus::NotStarted, 0});
-        if (!ValidateAddress(destination)) return complete({Radio::RadioSendStatus::InvalidAddress, 0});
+        const std::uint8_t* payload,
+        std::size_t payloadSize) noexcept override {
+        if (!_started) return {Radio::RadioSendStatus::NotStarted, 0};
+        if (!ValidateAddress(destination)) return {Radio::RadioSendStatus::InvalidAddress, 0};
         if ((payload == nullptr && payloadSize != 0) || payloadSize > MaximumPayloadBytes)
-            return complete({Radio::RadioSendStatus::PayloadTooLarge, 0});
+            return {Radio::RadioSendStatus::PayloadTooLarge, 0};
 
         const bool broadcast = destination == _configuration.BroadcastAddress || destination.IsBroadcast();
         const Radio::RadioAddress& txAddress = destination.IsBroadcast() ? _configuration.BroadcastAddress : destination;
         _radio.stopListening(txAddress.Bytes.data());
-        const bool delivered = _radio.write(payload, static_cast<uint8_t>(payloadSize), broadcast);
+        const bool delivered = _radio.write(payload, static_cast<std::uint8_t>(payloadSize), broadcast);
         _radio.startListening();
-        if (!delivered) return complete({Radio::RadioSendStatus::NativeFailure, 0});
+        if (!delivered) return {Radio::RadioSendStatus::NativeFailure, 0};
 
-        return complete(Radio::RadioSendResult::Accepted(
+        return Radio::RadioSendResult::Accepted(
             broadcast
                 ? Radio::RadioDirectLinkEvidence::CompletedWithoutPeerAcknowledgement()
-                : Radio::RadioDirectLinkEvidence::CompletedAndAcknowledged()
-        ));
+                : Radio::RadioDirectLinkEvidence::CompletedAndAcknowledged());
     }
 
     void SetReceiver(Radio::IRadioReceiver* receiver) noexcept override { _receiver = receiver; }
-    void SetWorkSignal(Radio::IRadioWorkSignal* signal) noexcept override { _workSignal = signal; }
-    Radio::RadioObserverSubscriptions& Observers() noexcept override { return _observers; }
+    void SetRuntimeSink(Radio::IRadioRuntimeSink* sink) noexcept override { _runtimeSink = sink; }
 
-    void DrainInbound() override {
-        if (!_started) return;
-        uint8_t pipe = 0;
-        while (_radio.available(&pipe)) {
-            const uint8_t length = _radio.getDynamicPayloadSize();
+    Radio::ManagedRadioIngressServiceResult ServiceInbound(std::size_t maximumPackets = 0U) noexcept override {
+        Radio::ManagedRadioIngressServiceResult result{};
+        if (!_started) return result;
+        const std::size_t limit = maximumPackets == 0U
+            ? HardwareReceiveFifoPackets : (maximumPackets < HardwareReceiveFifoPackets ? maximumPackets : HardwareReceiveFifoPackets);
+        std::uint8_t pipe = 0;
+        while (result.PacketsProcessed < limit && _radio.available(&pipe)) {
+            const std::uint8_t length = _radio.getDynamicPayloadSize();
             if (length == 0 || length > MaximumPayloadBytes) {
                 _radio.flush_rx();
+                ++result.PacketsProcessed;
                 continue;
             }
-            std::array<uint8_t, MaximumPayloadBytes> payload{};
+            std::array<std::uint8_t, MaximumPayloadBytes> payload{};
             _radio.read(payload.data(), length);
-
-            Radio::RadioPacketView packet;
+            Radio::RadioPacketView packet{};
             packet.Source = {};
             packet.Destination = pipe == 2 ? _configuration.BroadcastAddress : _configuration.LocalAddress;
             packet.Payload = payload.data();
             packet.PayloadSize = length;
             packet.Flags = pipe == 2 ? Radio::RadioPacketFlag::Broadcast : Radio::RadioPacketFlag::LinkAcknowledged;
-            if (_receiver != nullptr) _receiver->OnRadioPacket(*this, packet);
+            const Radio::RadioReceiveTimestampEvidence timestamp{
+                0, 0, 0, _lifecycleGeneration,
+                Radio::RadioTimestampCaptureSource::ServiceContext,
+                Radio::RadioTimestampQuality::Unbounded};
+            if (_receiver) _receiver->OnRadioPacket(*this, packet, timestamp);
+            ++result.PacketsProcessed;
         }
+        result.WorkRemaining = _radio.available(&pipe);
+        if (result.WorkRemaining && _runtimeSink) _runtimeSink->InboundAvailable(*this);
+        return result;
     }
 };
 
