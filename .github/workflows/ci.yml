@@ -5,6 +5,7 @@ on:
     branches:
       - feature/1-nrf24-radio
       - structural_realignment_propagation_ESPressio-Mesh
+      - primitives_redesign
   pull_request:
 
 jobs:
@@ -17,7 +18,7 @@ jobs:
           python-version: '3.x'
       - name: Install PlatformIO
         run: pip install platformio
-      - name: Create provider smoke project
+      - name: Create managed-provider smoke project
         shell: bash
         run: |
           PROJECT="$RUNNER_TEMP/espressio-nrf24-ci"
@@ -29,13 +30,11 @@ jobs:
           framework = arduino
           build_flags = -std=gnu++17
           build_unflags = -std=gnu++11
-          lib_ldf_mode = deep+
           lib_deps =
               https://github.com/ESPressio-Development-Platform/ESPressio-System.git#primitives_redesign
-              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#primitives_redesign
-              https://github.com/ESPressio-Development-Platform/ESPressio-Observable.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-Task.git#primitives_redesign
               https://github.com/ESPressio-Development-Platform/ESPressio-Timing.git#primitives_redesign
-              https://github.com/ESPressio-Development-Platform/ESPressio-Threads.git#primitives_redesign
+              https://github.com/ESPressio-Development-Platform/ESPressio-Units.git#primitives_redesign
               https://github.com/ESPressio-Development-Platform/ESPressio-Radio.git#primitives_redesign
               https://github.com/ESPressio-Development-Platform/ESPressio-NRF24.git#primitives_redesign
           EOF
@@ -54,14 +53,24 @@ jobs:
               return value;
           }();
           ESPressio::NRF24::NRF24Radio radio(config);
-          ESPressio::Radio::RadioTransport transport;
-          ESPressio::Radio::RadioWorker worker(transport);
 
           void setup() {
-              worker.AddInterface(radio);
+              const auto resources = radio.ProviderResources();
+              const auto capabilities = radio.Capabilities();
+              const ESPressio::Radio::RadioServiceProfile profile{
+                  ESPressio::Radio::RadioServiceClass::Responsive,
+                  ESPressio::Radio::RadioDeadlineTreatment::Promotable,
+                  ESPressio::Radio::RadioDirectLinkEvidenceRequirement::TransmissionCompletion};
+              const auto cost = radio.EstimateTransmissionCost(config.BroadcastAddress, 32, profile);
+              volatile bool finiteIngress = resources.HasFiniteIngressService();
+              volatile bool v3Maximum = capabilities.MaximumLogicalTransferBytes == 3060;
+              volatile bool conservative = cost.SupportsPromotableDeadline();
+              (void)finiteIngress;
+              (void)v3Maximum;
+              (void)conservative;
           }
 
           void loop() {}
           EOF
-      - name: Compile provider against Mesh propagation Radio API
+      - name: Compile managed NRF24 provider against target Radio API
         run: pio run -d "$RUNNER_TEMP/espressio-nrf24-ci"
